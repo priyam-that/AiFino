@@ -1,8 +1,15 @@
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { formatInr } from "@/lib/utils";
 import { getDashboardData } from "@/lib/server-data";
 import { summarizeTimeframes } from "@/lib/finance";
 import InvestmentPlans from "./InvestmentPlans";
+import GoalPlanner from "./GoalPlanner";
 
 export default async function InvestPage() {
   const data = await getDashboardData();
@@ -13,141 +20,130 @@ export default async function InvestPage() {
   const weekly = timeframeSummary.week ?? { credit: 0, debit: 0, due: 0 };
 
   // Saved weekly = credited - debited - due (never below 0)
-  const savedWeekly = Math.max(0, (weekly.credit ?? 0) - (weekly.debit ?? 0) - (weekly.due ?? 0));
+  const savedWeekly = Math.max(
+    0,
+    (weekly.credit ?? 0) - (weekly.debit ?? 0) - (weekly.due ?? 0)
+  );
 
   // 50% allocation target for SIP + Mutual Funds
   const sipMfAllocation = Math.round(savedWeekly * 0.5);
+  const monthlySip = sipMfAllocation * 4;
 
-  // Existing logic (kept for other cards/uses)
   const savingsGoal = profile?.savingsGoal ?? 20000;
   const progress = insights?.totals?.savingsProgress ?? 0;
   const savedMoney = Math.round((savingsGoal * progress) / 100);
   const portfolioValue = Math.max((profile?.balance ?? 0) + savedMoney, 15000);
 
-  // Removed unused variables:
-  // const autopilotContribution = Math.round(portfolioValue * 0.08);
-  // const holdings = [ ... ];
-
-  // New: three safe long-term plan options (example allocation)
-  const planOptions = [
-    {
-      name: "Index Equity SIP (Core)",
-      allocationPct: 50,
-      description:
-        "Low-cost passive index SIPs — core growth engine (e.g., large-cap index funds).",
-    },
-    {
-      name: "Hybrid / Balanced Fund SIP",
-      allocationPct: 30,
-      description:
-        "Mix of equity + debt for steadier returns and lower volatility versus pure equity.",
-    },
-    {
-      name: "Government-backed Debt / Bond Ladder",
-      allocationPct: 20,
-      description:
-        "Safe debt allocation: government bonds, PPF or short-term gilt ladder for capital preservation.",
-    },
-  ];
-
-  // compute amounts (weekly) for each plan
-  const plansWithValues = planOptions.map((p) => ({
-    ...p,
-    weeklyValue: Math.round((sipMfAllocation * p.allocationPct) / 100),
-    monthlyValue: Math.round(((sipMfAllocation * p.allocationPct) / 100) * 4), // simple 4-week month estimate
-  }));
+  const goalGap = Math.max(0, savingsGoal - savedMoney);
+  const weeksToGoal = savedWeekly > 0 ? Math.ceil(goalGap / savedWeekly) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-16 text-white lg:px-0">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-          Portfolio + savings
+          Plan + execute
         </p>
-        <h1 className="text-4xl font-semibold">Invest screen</h1>
+        <h1 className="text-4xl font-semibold">Invest with intention</h1>
         <p className="text-white/70">
-          Track autopilot investing, see how much is saved, and peek at the mix
-          Spark maintains for you.
+          Monitor weekly cash flow, dial in a goal-based SIP, and route every rupee
+          into diversified plans Spark can automate for you.
         </p>
       </header>
 
-      {/* Card: Weekly SIP + MF plan (50% of net saved) */}
-      <Card className="border-white/10 bg-black/40">
-        <CardContent className="space-y-4 p-6">
-          <div className="flex items-center justify-between text-sm text-white/70">
-            <span className="inline-flex items-center gap-2 text-white">
-              Weekly SIP + MF plan
-            </span>
-            <span className="text-xs uppercase tracking-[0.3em] text-white/50">
-              Auto
-            </span>
-          </div>
-          <p className="text-3xl font-semibold">
-            {formatInr(sipMfAllocation)}
-          </p>
-          <p className="text-sm text-white/60">
-            50% of weekly net saved (credited − debited − due). Net saved:{" "}
-            {formatInr(savedWeekly)}.
-          </p>
-          <p className="text-xs text-white/50">
-            Formula: 0.5 × max(0, credited − debited − due)
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* NEW Card: Diversified long-term plans (3 safe options) */}
-        <Card className="border-white/10 bg-black/40">
-          <CardContent className="space-y-4 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-                  Diversify weekly SIP
-                </p>
-                <h3 className="text-xl font-semibold">Long-term plan options</h3>
-              </div>
-              <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
-                Safe & long
-              </span>
-            </div>
-
-            <p className="text-sm text-white/60">
-              We split your weekly SIP allocation ({formatInr(sipMfAllocation)})
-              into three conservative long-term plans. Values shown are weekly,
-              with a simple 4-week monthly estimate.
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent">
+          <CardHeader className="pb-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              Portfolio snapshot
             </p>
+            <CardTitle className="text-3xl font-semibold">
+              {formatInr(portfolioValue)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-white/70">
+            Includes liquid balance ({formatInr(profile?.balance ?? 0)}) + auto-saved stash.
+          </CardContent>
+        </Card>
 
-            <ul className="space-y-3 pt-2 text-sm">
-              {plansWithValues.map((p) => (
-                <li
-                  key={p.name}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/60 px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold text-white">{p.name}</p>
-                    <p className="text-white/50 text-xs">{p.allocationPct}% allocation</p>
-                    <p className="text-white/60 text-xs mt-1">{p.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-medium">{formatInr(p.weeklyValue)}/wk</p>
-                    <p className="text-white/50 text-xs">{formatInr(p.monthlyValue)}/mo</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <p className="text-xs text-white/50">
-              Note: these are example buckets — replace with your selected funds
-              (index SIPs, balanced funds, PPF/gilt funds) when ready.
+        <Card className="border-white/10 bg-black/40">
+          <CardHeader className="pb-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              Goal progress
+            </p>
+            <CardTitle className="text-3xl font-semibold">
+              {progress}% towards {formatInr(savingsGoal)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-white/70">
+            <Progress value={Math.min(100, Math.max(0, progress))} className="bg-white/10" />
+            <p>
+              {goalGap === 0
+                ? "Goal cleared — keep compounding."
+                : `${formatInr(goalGap)} left to reach your target.`}
             </p>
           </CardContent>
         </Card>
 
-        {/* Card: My portfolio mix (allocation) */}
-       <div className="p-6">
-      <InvestmentPlans sipMfAllocation={sipMfAllocation} />
+        <Card className="border-white/10 bg-black/40">
+          <CardHeader className="pb-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              Weekly net saved
+            </p>
+            <CardTitle className="text-3xl font-semibold">
+              {formatInr(savedWeekly)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-white/70">
+            <p>
+              {formatInr(weekly.credit)} credited · {formatInr(weekly.debit)} spent · {formatInr(weekly.due)} due
+            </p>
+            <p className="text-white/50 text-xs mt-2">
+              Spark directs 50% ({formatInr(sipMfAllocation)}) to SIPs by default.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <GoalPlanner />
+
+        <Card className="border-white/10 bg-black/40">
+          <CardHeader className="pb-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              Autopilot allocation
+            </p>
+            <CardTitle className="text-2xl font-semibold">
+              Weekly SIP + Mutual Funds
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-white/70">
+            <p className="text-4xl font-semibold text-white">
+              {formatInr(sipMfAllocation)}
+            </p>
+            <p>
+              50% of weekly net saved (credited − debited − due). Net saved: {formatInr(savedWeekly)}.
+            </p>
+            <p className="text-white/50 text-xs">
+              Formula: 0.5 × max(0, credited − debited − due)
+            </p>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Monthly auto-invest</p>
+              <p className="text-2xl font-semibold">{formatInr(monthlySip)}</p>
+              <p className="text-sm text-white/70">
+                {weeksToGoal
+                  ? `Projected to hit the savings goal in ~${weeksToGoal} weeks at this pace.`
+                  : "Add fresh cash to unlock goal ETA."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <InvestmentPlans sipMfAllocation={sipMfAllocation} />
         </div>
 
-        {/* Card: Spark suggestions (next moves) */}
         <Card className="border-white/10 bg-black/40">
           <CardContent className="space-y-4 p-6">
             <div>
@@ -158,24 +154,19 @@ export default async function InvestPage() {
             </div>
             <ul className="space-y-3 text-sm text-white/80">
               <li className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                Reinvest the extra {formatInr(Math.round(savedMoney * 0.1))} from
-                last month&apos;s cashback into your Impact Notes ladder.
+                Reinvest the extra {formatInr(Math.round(savedMoney * 0.1))} from last month&apos;s cashback into your Impact Notes ladder.
               </li>
               <li className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                {/* null-safe balance to avoid runtime error when profile is missing */}
-                Keep {formatInr(Math.round((profile?.balance ?? 0) * 0.2))} liquid for
-                holidays—Spark will throttle ETF buys if dining keeps trending up.
+                Keep {formatInr(Math.round((profile?.balance ?? 0) * 0.2))} liquid for holidays—Spark will throttle ETF buys if dining keeps trending up.
               </li>
               <li className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                Activate auto-save boosts on paydays to hit the goal{" "}
-                {Math.max(0, 100 - progress)}% faster.
+                Activate auto-save boosts on paydays to hit the goal {Math.max(0, 100 - progress)}% faster.
               </li>
             </ul>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      {/* Card: Weekly flow breakdown */}
       <Card className="border-white/10 bg-black/40">
         <CardContent className="space-y-3 p-6 text-sm">
           <p className="text-xs uppercase tracking-[0.3em] text-white/60">
